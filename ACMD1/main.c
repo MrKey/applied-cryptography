@@ -4,7 +4,12 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#define KEYSIZE 8
+#define KEYBITS KEYSIZE*8
 #define BLOCKSIZE 8
+#define BLOCKBITS BLOCKSIZE*8
+#define EDFLAG_ENCRYPT 0
+#define EDFLAG_DECRYPT 1
 
 typedef struct bytebits {
 	unsigned int bit7 : 1;
@@ -20,36 +25,40 @@ typedef struct bytebits {
 // void block_encrypt(const unsigned char *input, unsigned char *output);
 // void string_to_keybits(const char str[], char keybits[]); 
 
-char *getbits(const char byte);
+void getbits(const char *bytes, char *bits, int n);
+void getbytes(const char *bits, char *bytes, int n);
 
 int main(int argc, char *argv[])
 {
-	/*
-	int n;
-	char buf[BLOCKSIZE],
-		chiper[BLOCKSIZE];
+	int i, n;
+	char buf[BLOCKSIZE], chiper[BLOCKSIZE];
 
-	setkey("12345678");
+	const char key[] = "12345678";
+	char keybits[KEYBITS];
+	char blockbits[BLOCKBITS];
+
+	getbits(key, keybits, KEYSIZE);
+
+#ifdef _DEBUG
+	for (i = 0; i < KEYBITS; i++) {
+		printf("%d", keybits[i]);
+		if ((i+1)%8 == 0) printf(" ");
+	}
+	printf("\n");
+#endif
+
+	setkey(keybits);
 
 	while ((n = read(0, buf, BLOCKSIZE)) > 0) {
-		if (n == 8) {
-			encrypt(buf, 0);
+		if (n == BLOCKSIZE) {
+			getbits(buf, blockbits, n);
+			encrypt(blockbits, EDFLAG_ENCRYPT);
+			getbytes(blockbits, buf, n);
 			write(1, buf, n);
 		} else {
 			write(1, buf, n);
 		}
 	}
-	*/
-
-	char a = 'a';
-	char *b;
-
-	b = getbits(a);
-
-	for (int i = 0; i < 8; i++) {
-		printf("%d", b[i]);
-	}
-	printf("\n");
 }
 
 void block_encrypt(const unsigned char *input, unsigned char *output)
@@ -69,24 +78,43 @@ void bytes_to_bits(const char str[], char keybits[])
 }
 
 /**
- * Return array of 8 bytes with bit values, each byte value is 0 or 1
+ * Get bits for bytes, each bit is a byte with value 0 or 1
  */
-char *getbits(const char byte)
+void getbits(const char bytes[], char bits[], int n)
 {
-	Bytebits *bytebits = (Bytebits *) &byte;
-	char *bits;
+	Bytebits *bytebits;
+	int i, j;
 
-	bits = (char *) malloc(sizeof(char) * 8);
+	for (i = 0, j = 0; i < n; ++i, j += 8) {
+		bytebits = (Bytebits *) &bytes[i];
+	
+		bits[0 + j] = (*bytebits).bit0;
+		bits[1 + j] = (*bytebits).bit1;
+		bits[2 + j] = (*bytebits).bit2;
+		bits[3 + j] = (*bytebits).bit3;
+		bits[4 + j] = (*bytebits).bit4;
+		bits[5 + j] = (*bytebits).bit5;
+		bits[6 + j] = (*bytebits).bit6;
+		bits[7 + j] = (*bytebits).bit7;
+	}
+}
 
-	bits[0] = (*bytebits).bit0;
-	bits[1] = (*bytebits).bit1;
-	bits[2] = (*bytebits).bit2;
-	bits[3] = (*bytebits).bit3;
-	bits[4] = (*bytebits).bit4;
-	bits[5] = (*bytebits).bit5;
-	bits[6] = (*bytebits).bit6;
-	bits[7] = (*bytebits).bit7;
+void getbytes(const char bits[], char bytes[], int n)
+{
+	Bytebits *bytebits;
+	int i, j;
 
-	return bits;
+	for (i = 0, j = 0; i < n; ++i, j += 8) {
+		bytebits = (Bytebits *) &bytes[i];
+
+		(*bytebits).bit0 = bits[0 + j];
+		(*bytebits).bit1 = bits[1 + j];
+		(*bytebits).bit2 = bits[2 + j];
+		(*bytebits).bit3 = bits[3 + j];
+		(*bytebits).bit4 = bits[4 + j];
+		(*bytebits).bit5 = bits[5 + j];
+		(*bytebits).bit6 = bits[6 + j];
+		(*bytebits).bit7 = bits[7 + j];
+	}
 }
 
