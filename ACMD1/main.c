@@ -33,12 +33,13 @@ int main(int argc, char *argv[])
 {
 	int i, n;
 
-	char plain[BLOCKSIZE], cipher[BLOCKSIZE], cipher1[BLOCKSIZE];
+	char plain[BLOCKSIZE], cipher[BLOCKSIZE], plain1[BLOCKSIZE], cipher1[BLOCKSIZE];
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
 
 	char *key;
 	int op = OP_ENCRYPT, nopad = 1;
+	int firstblock;
 
 	// Get options
 	int ch;
@@ -70,37 +71,55 @@ int main(int argc, char *argv[])
 	printf("\n");
 #endif
 
-	memset(cipher, 0, BLOCKSIZE);										// For the first block, use 0 for the XOR operation instead of using a counter together with a conditional expression
 	switch (op) {
 		case OP_DECRYPT:
-			// here 'cipher1' is the current read ciphertext block, 'cipher' is the previous block
-			while ((n = read(0, cipher1, BLOCKSIZE)) > 0) {
+			// here 'cipher', 'plain' is the current read ciphertext block / decrypted plaintext block, 'cipher1', 'plain1' is the previous block
+			memset(cipher1, 0, BLOCKSIZE);								// For the first block use 0 in place of the previous block value
+			if (!nopad) firstblock = 1;
+			while ((n = read(0, cipher, BLOCKSIZE)) > 0) {
 				if (n == BLOCKSIZE) {
 					// CBC full block chaining - P_i = C_i-1 ^ D_k(C_i)
 					// DES decrypt the current ciphertext block and XOR with the previous ciphertext block
-					getbits(cipher1, blockbits, n);
+					getbits(cipher, blockbits, n);
 					encrypt(blockbits, EDFLAG_DECRYPT);
 					getbytes(blockbits, plain, n);						// Actually, it is not yet a plaintext, the plaintext is retrieved in the next step
-					chain(plain, cipher, n);							// Here 'plain' contains the plaintext
-					memcpy(cipher, cipher1, n);
-					write(1, plain, n);
+					chain(plain, cipher1, n);							// Here 'plain' contains the plaintext
+					memcpy(cipher1, cipher, n);
+					if (nopad) {
+						write(1, plain, n);
+					} else {
+						// Padding in use, the current block might be the last and contain padding bytes. The previous block is certain to contain no padding bytes
+						if (!firstblock) {
+							write(1, plain1, n);
+						} else {
+							firstblock = 0;
+						}
+						memcpy(plain1, plain, n);
+					}
 				} else {
 					// nopadding - no stealing (xor last part)
 					// encrypt the last ciphertext again, and xor the leftmost bits with the buffer
-					getbits(cipher, blockbits, BLOCKSIZE);
+					getbits(cipher1, blockbits, BLOCKSIZE);
 					encrypt(blockbits, EDFLAG_ENCRYPT);
 					getbytes(blockbits, plain, n);						// Actually, it is not yet a plaintext, the plaintext is retrieved in the next step
-					chain(plain, cipher1, n);							// Here 'plain' contains the plaintext
+					chain(plain, cipher, n);							// Here 'plain' contains the plaintext
 					write(1, plain, n);
 				}
+				// TODO (n != BLOCKSIZE && padding) -> Error! (invalid block size)
+			}
+			// Detect and skip padding bytes from output
+			if (!nopad) {
+				write(1, plain, BLOCKSIZE - *(plain + BLOCKSIZE - 1));
+				// TODO (plain[BLOCKSIZE-n] > BLOCKSIZE) -> Error! (invalid padding specification)
 			}
 			break;
 		case OP_ENCRYPT:
 		default:
 			// here 'cipher' is reused, the current ciphertext block also can be used as the previous block in the beginning of the next iteration
+			memset(cipher, 0, BLOCKSIZE);								// For the first block use 0 in place of the previous block value
 			while ((n = read(0, plain, BLOCKSIZE)) > 0 || !nopad) {
 				if (n == BLOCKSIZE || !nopad) {
-
+					// Padding necessary
 					if (n < BLOCKSIZE) {
 						// Padding with PKCS#5 (standard block padding)
 						memset(plain + n, BLOCKSIZE - n, BLOCKSIZE - n);
