@@ -98,12 +98,14 @@ int main(int argc, char *argv[])
 		case OP_ENCRYPT:
 		default:
 			// here 'cipher' is reused, the current ciphertext block also can be used as the previous block in the beginning of the next iteration
-			while ((n = read(0, plain, BLOCKSIZE)) > 0) {
+			while ((n = read(0, plain, BLOCKSIZE)) > 0 || !nopad) {
 				if (n == BLOCKSIZE || !nopad) {
+
 					if (n < BLOCKSIZE) {
 						// Padding with PKCS#5 (standard block padding)
 						memset(plain + n, BLOCKSIZE - n, BLOCKSIZE - n);
 						n = BLOCKSIZE;
+						nopad = 1;
 					}
 					// CBC full block chaining -- C_i = E_k(P_i ^ C_i-1)
 					// XOR the current plaintext block with the previous block ciphertext, DES encrypt the result
