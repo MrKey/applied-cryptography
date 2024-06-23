@@ -37,8 +37,24 @@ int main(int argc, char *argv[])
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
 
-	const char key[] = "12345678";
-	const int op = 1;
+	char *key;
+	int op = OP_ENCRYPT;
+
+	// Get options
+	int ch;
+	while ((ch = getopt(argc, argv, "k:ed")) != -1) {
+		switch (ch) {
+			case 'e':
+				op = OP_ENCRYPT;
+				break;
+			case 'd':
+				op = OP_DECRYPT;
+				break;
+			case 'k':
+				key = optarg;
+				break;
+		}
+	}
 
 	getbits(key, keybits, KEYSIZE);
 	setkey(keybits);
