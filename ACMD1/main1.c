@@ -1,5 +1,6 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -29,7 +30,7 @@ void chain(char buf[], const char cph[], int n);
 int main(int argc, char *argv[])
 {
 	int i, n;
-	char buf[BLOCKSIZE], cph[BLOCKSIZE];
+	char buf[BLOCKSIZE], cph[BLOCKSIZE], buf1[BLOCKSIZE];
 
 	const char key[] = "12345678";
 	char keybits[KEYBITS];
@@ -50,16 +51,18 @@ int main(int argc, char *argv[])
 	i = 0;
 	while ((n = read(0, buf, BLOCKSIZE)) > 0) {
 		if (n == BLOCKSIZE) {
-			if (i > 0) {
-				chain(buf, cph, n);
-			}
 			getbits(buf, blockbits, n);
-			encrypt(blockbits, EDFLAG_ENCRYPT);
+			encrypt(blockbits, EDFLAG_DECRYPT);
 			getbytes(blockbits, cph, n);
+			if (i > 0) {
+				chain(cph, buf1, n);
+			}
+			memcpy(buf1, buf, n);
 			write(1, cph, n);
 		} else {
 			// nopadding - no stealing (xor last part)
 			// encrypt the last ciphertext again, and xor the leftmost bits with the buffer
+			getbits(buf1, blockbits, BLOCKSIZE);
 			encrypt(blockbits, EDFLAG_ENCRYPT);
 			getbytes(blockbits, cph, n);
 			chain(buf, cph, n);
