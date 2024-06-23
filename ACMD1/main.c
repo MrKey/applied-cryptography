@@ -1,5 +1,6 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -10,6 +11,8 @@
 #define BLOCKBITS BLOCKSIZE*8
 #define EDFLAG_ENCRYPT 0
 #define EDFLAG_DECRYPT 1
+#define OP_ENCRYPT 0
+#define OP_DECRYPT 1
 
 typedef struct bytebits {
 	unsigned int bit7 : 1;
@@ -29,13 +32,16 @@ void chain(char buf[], const char cph[], int n);
 int main(int argc, char *argv[])
 {
 	int i, n;
-	char buf[BLOCKSIZE], cph[BLOCKSIZE];
 
-	const char key[] = "12345678";
+	char plain[BLOCKSIZE], cipher[BLOCKSIZE], cipher1[BLOCKSIZE];
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
 
+	const char key[] = "12345678";
+	const int op = 1;
+
 	getbits(key, keybits, KEYSIZE);
+	setkey(keybits);
 
 #ifdef _DEBUG
 	for (i = 0; i < KEYBITS; i++) {
@@ -45,27 +51,52 @@ int main(int argc, char *argv[])
 	printf("\n");
 #endif
 
-	setkey(keybits);
-
-	i = 0;
-	while ((n = read(0, buf, BLOCKSIZE)) > 0) {
-		if (n == BLOCKSIZE) {
-			if (i > 0) {
-				chain(buf, cph, n);
+	memset(cipher, 0, BLOCKSIZE);										// For the first block, use 0 for the XOR operation instead of using a counter together with a conditional expression
+	switch (op) {
+		case OP_DECRYPT:
+			// here 'cipher1' is the current read ciphertext block, 'cipher' is the previous block
+			while ((n = read(0, cipher1, BLOCKSIZE)) > 0) {
+				if (n == BLOCKSIZE) {
+					// CBC full block chaining - P_i = C_i-1 ^ D_k(C_i)
+					// DES decrypt the current ciphertext block and XOR with the previous ciphertext block
+					getbits(cipher1, blockbits, n);
+					encrypt(blockbits, EDFLAG_DECRYPT);
+					getbytes(blockbits, plain, n);						// Actually, it is not yet a plaintext, the plaintext is retrieved in the next step
+					chain(plain, cipher, n);							// Here 'plain' contains the plaintext
+					memcpy(cipher, cipher1, n);
+					write(1, plain, n);
+				} else {
+					// nopadding - no stealing (xor last part)
+					// encrypt the last ciphertext again, and xor the leftmost bits with the buffer
+					getbits(cipher, blockbits, BLOCKSIZE);
+					encrypt(blockbits, EDFLAG_ENCRYPT);
+					getbytes(blockbits, plain, n);						// Actually, it is not yet a plaintext, the plaintext is retrieved in the next step
+					chain(plain, cipher1, n);							// Here 'plain' contains the plaintext
+					write(1, plain, n);
+				}
 			}
-			getbits(buf, blockbits, n);
-			encrypt(blockbits, EDFLAG_ENCRYPT);
-			getbytes(blockbits, cph, n);
-			write(1, cph, n);
-		} else {
-			// nopadding - no stealing (xor last part)
-			// encrypt the last ciphertext again, and xor the leftmost bits with the buffer
-			encrypt(blockbits, EDFLAG_ENCRYPT);
-			getbytes(blockbits, cph, n);
-			chain(buf, cph, n);
-			write(1, buf, n);
-		}
-		++i;
+			break;
+		case OP_ENCRYPT:
+		default:
+			// here 'cipher' is reused, the current ciphertext block also can be used as the previous block in the beginning of the next iteration
+			while ((n = read(0, plain, BLOCKSIZE)) > 0) {
+				if (n == BLOCKSIZE) {
+					// CBC full block chaining -- C_i = E_k(P_i ^ C_i-1)
+					// XOR the current plaintext block with the previous block ciphertext, DES encrypt the result
+					chain(plain, cipher, n);
+					getbits(plain, blockbits, n);
+					encrypt(blockbits, EDFLAG_ENCRYPT);
+					getbytes(blockbits, cipher, n);
+					write(1, cipher, n);
+				} else {
+					// CBC trailing block with no padding (same length) using the XOR approach - encrypt the last full block again, then XOR with the trailing bytes
+					encrypt(blockbits, EDFLAG_ENCRYPT);
+					getbytes(blockbits, cipher, n);
+					chain(cipher, plain, n);
+					write(1, cipher, n);
+				}
+			}
+			break;
 	}
 }
 
