@@ -38,20 +38,23 @@ int main(int argc, char *argv[])
 	char blockbits[BLOCKBITS];
 
 	char *key;
-	int op = OP_ENCRYPT;
+	int op = OP_ENCRYPT, nopad = 1;
 
 	// Get options
 	int ch;
-	while ((ch = getopt(argc, argv, "k:ed")) != -1) {
+	while ((ch = getopt(argc, argv, "dek:p")) != -1) {
 		switch (ch) {
-			case 'e':
-				op = OP_ENCRYPT;
-				break;
 			case 'd':
 				op = OP_DECRYPT;
 				break;
+			case 'e':
+				op = OP_ENCRYPT;
+				break;
 			case 'k':
 				key = optarg;
+				break;
+			case 'p':
+				nopad = 0;
 				break;
 		}
 	}
@@ -96,7 +99,12 @@ int main(int argc, char *argv[])
 		default:
 			// here 'cipher' is reused, the current ciphertext block also can be used as the previous block in the beginning of the next iteration
 			while ((n = read(0, plain, BLOCKSIZE)) > 0) {
-				if (n == BLOCKSIZE) {
+				if (n == BLOCKSIZE || !nopad) {
+					if (n < BLOCKSIZE) {
+						// Padding with PKCS#5 (standard block padding)
+						memset(plain + n, BLOCKSIZE - n, BLOCKSIZE - n);
+						n = BLOCKSIZE;
+					}
 					// CBC full block chaining -- C_i = E_k(P_i ^ C_i-1)
 					// XOR the current plaintext block with the previous block ciphertext, DES encrypt the result
 					chain(plain, cipher, n);
