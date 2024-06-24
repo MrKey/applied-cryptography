@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
 	char *key;
-	int mode = MODE_CBC + MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR;
+	int mode = MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR;
 
 	// Get options
 	int ch;
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 #endif
 
 	switch (mode) {
-		case MODE_CBC + MODE_ENCRYPT + MODE_PAD:
+		case MODE_ENCRYPT + MODE_PAD:
 			// 'cipher' is used both for the previous and current block value as it can be reused in this flow
 			memset(cipher, 0, BLOCKSIZE);								// initialization vector
 			flag = 0;													// set when padding done for the last block
@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 				write(1, cipher, n);
 			}
 			break;
-		case MODE_CBC + MODE_DECRYPT + MODE_PAD:
+		case MODE_DECRYPT + MODE_PAD:
 			memset(cipher_prev, 0, BLOCKSIZE);							// initialization vector
 			flag = 0;													// set after the 1st block
 			while ((n = read(0, cipher, BLOCKSIZE)) > 0) {
@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 			write(1, plain, BLOCKSIZE - *(plain + BLOCKSIZE - 1));
 			// TODO: (plain[BLOCKSIZE-n] > BLOCKSIZE) -> Error! (invalid padding specification)
 			break;
-		case MODE_CBC + MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
+		case MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
 			// 'cipher' is used both for the previous and current block value as it can be reused in this flow
 			memset(cipher, 0, BLOCKSIZE);								// initialization vector
 			while ((n = read(0, plain, BLOCKSIZE)) > 0) {
@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 				}
 			}
 			break;
-		case MODE_CBC + MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
+		case MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
 			memset(cipher_prev, 0, BLOCKSIZE);							// initialization vector
 			while ((n = read(0, cipher, BLOCKSIZE)) > 0) {
 				if (n == BLOCKSIZE) {
@@ -147,9 +147,9 @@ int main(int argc, char *argv[])
 				}
 			}
 			break;
-		case MODE_CBC + MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
+		case MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
 			break;
-		case MODE_CBC + MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
+		case MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
 			break;
 	}
 }
