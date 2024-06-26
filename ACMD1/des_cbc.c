@@ -24,11 +24,14 @@ int main(int argc, char *argv[])
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
 	char *key;
+	char iv[BLOCKSIZE];
 	int mode = MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR;
+
+	memset(iv, 0, BLOCKSIZE);											// default initialization vector (no IV)
 
 	// Get options
 	int ch;
-	while ((ch = getopt(argc, argv, "dek:ps")) != -1) {
+	while ((ch = getopt(argc, argv, "dei:k:ps")) != -1) {
 		switch (ch) {
 			case 'd': // decrypt
 				mode = mode | MODE_DECRYPT;
@@ -36,6 +39,14 @@ int main(int argc, char *argv[])
 			case 'e': // encrypt
 				mode = mode & ~MODE_DECRYPT;
 				break;
+			case 'i': // initialization vector
+				if ((n = strlen(optarg)) < BLOCKSIZE) {
+					fprintf(stderr, "IV too short, padded using 0 to match %d bytes\n", BLOCKSIZE);
+				} else if (n > BLOCKSIZE) {
+					fprintf(stderr, "IV to long, truncated to %d bytes\n", BLOCKSIZE);
+				}
+				memcpy(iv, optarg, n > BLOCKSIZE ? BLOCKSIZE : n);
+			break;
 			case 'k': // key value
 				key = optarg;
 				break;
@@ -62,7 +73,10 @@ int main(int argc, char *argv[])
 	switch (mode) {
 		case MODE_ENCRYPT + MODE_PAD:
 			// 'cipher' is used both for the previous and current block value as it can be reused in this flow
-			memset(cipher, 0, BLOCKSIZE);								// initialization vector
+			memset(cipher, 0, BLOCKSIZE);
+			chain(cipher, iv, BLOCKSIZE);								// initially chain with the initialization vector
+			// fprintf(stderr, "IV: %x%x%x%x%x%x%x%x\n", iv[0], iv[1], iv[2], iv[3], iv[4], iv[5], iv[6], iv[7]);
+			// fprintf(stderr, "Cipher0: %x%x%x%x%x%x%x%x\n", cipher[0], cipher[1], cipher[2], cipher[3], cipher[4], cipher[5], cipher[6], cipher[7]);
 			flag = 0;													// set when padding done for the last block
 			while ((n = read(0, plain, BLOCKSIZE)) > 0 || !flag) {
 				if (n < BLOCKSIZE) {
@@ -81,7 +95,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case MODE_DECRYPT + MODE_PAD:
-			memset(cipher_prev, 0, BLOCKSIZE);							// initialization vector
+			memset(cipher_prev, 0, BLOCKSIZE);
+			chain(cipher_prev, iv, BLOCKSIZE);							// initially chain with the initialization vector
 			flag = 0;													// set after the 1st block
 			while ((n = read(0, cipher, BLOCKSIZE)) > 0) {
 				// TODO: (n != BLOCKSIZE && padding) -> Error! (invalid block size)
@@ -101,12 +116,26 @@ int main(int argc, char *argv[])
 				memcpy(plain_prev, plain, n);
 			}
 			// The last block, remove padding bytes from output
-			write(1, plain, BLOCKSIZE - *(plain + BLOCKSIZE - 1));
-			// TODO: (plain[BLOCKSIZE-n] > BLOCKSIZE) -> Error! (invalid padding specification)
+			write(1, plain, BLOCKSIZE - (n = plain[BLOCKSIZE - 1]));
+
+			// Verify padding bytes ('An erroneous padding should be treated in the same manner as an authentication failure.')
+			// Invalid padding specification: plain[BLOCKSIZE-n] > BLOCKSIZE
+			if (n > BLOCKSIZE) {
+				fprintf(stderr, "Invalid padding size, %d exceeds blocksize %d\n", n, BLOCKSIZE);
+				exit(1);
+			}
+			// Invalid padding byte contents
+			for (i = n - 1; i >= BLOCKSIZE - n; --i) {
+				if (plain[i] != n) {
+					fprintf(stderr, "Invalid padding fill, %d does not match %d\n", plain[i], n);
+					exit(1);
+				}
+			}
 			break;
 		case MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
 			// 'cipher' is used both for the previous and current block value as it can be reused in this flow
-			memset(cipher, 0, BLOCKSIZE);								// initialization vector
+			memset(cipher, 0, BLOCKSIZE);
+			chain(cipher, iv, BLOCKSIZE);								// initially chain with the initialization vector
 			while ((n = read(0, plain, BLOCKSIZE)) > 0) {
 				if (n == BLOCKSIZE) {
 					// CBC full block chaining: C_i = E_k(P_i ^ C_i-1)
@@ -126,7 +155,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_XOR:
-			memset(cipher_prev, 0, BLOCKSIZE);							// initialization vector
+			memset(cipher_prev, 0, BLOCKSIZE);
+			chain(cipher_prev, iv, BLOCKSIZE);							// initially chain with the initialization vector
 			while ((n = read(0, cipher, BLOCKSIZE)) > 0) {
 				if (n == BLOCKSIZE) {
 					// CBC full block chaining: P_i = C_i-1 ^ D_k(C_i)
