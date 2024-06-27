@@ -11,9 +11,13 @@ void readcnf(const char *filename, char **C, char **O, char **OU, char **CN);
 
 int main()
 {
+	const char conf_file[] = "mkcert.cnf";
+	const char key_file[] = "key.pem";
+	const char cert_file[] = "cert.pem";
+
 	// Read configuration from file mkcert.cnf
 	char *x509_field_C = NULL, *x509_field_O = NULL, *x509_field_OU = NULL, *x509_field_CN = NULL;
-	readcnf("mkcert.cnf", &x509_field_C, &x509_field_O, &x509_field_OU, &x509_field_CN);
+	readcnf(conf_file, &x509_field_C, &x509_field_O, &x509_field_OU, &x509_field_CN);
 
 	// This is deprecated use. Use single EVP_RSA_gen() instead!
 	/*
@@ -66,10 +70,10 @@ int main()
 	X509_sign(x509, pkey, EVP_sha3_256());
 
 	// Write out to files
-	FILE *f = fopen("key.pem", "wb");
+	FILE *f = fopen(key_file, "wb");
 	PEM_write_PrivateKey(f, pkey, EVP_aes_128_cbc(), NULL, 0, NULL, "");
 	fclose(f);
-	f = fopen("cert.pem", "wb");
+	f = fopen(cert_file, "wb");
 	PEM_write_X509(f, x509);
 	fclose(f);
 
