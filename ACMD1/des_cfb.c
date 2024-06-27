@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "mode.h"
 #include "getbits.h"
+#include "util.h"
 
 #define KEYSIZE 8
 #define KEYBITS (KEYSIZE*8)
@@ -23,9 +24,14 @@ int main(int argc, char *argv[])
 
 	char buf[UNITSIZE], output[UNITSIZE], reg[BLOCKSIZE], enc[BLOCKSIZE];
 	char blockbits[BLOCKBITS], keybits[KEYBITS];
-	char *key, *iv;
+	char key[BLOCKSIZE], iv[BLOCKSIZE];
+	int _key = 0, _iv = 0;
+
 	int mode = MODE_ENCRYPT;
 	int unit = UNITSIZE;
+
+	memset(key, 0, BLOCKSIZE);
+	memset(iv, 0, BLOCKSIZE);
 
 	// Get options
 	int ch;
@@ -51,13 +57,23 @@ int main(int argc, char *argv[])
 			case 'e': // encrypt
 				mode = mode & ~MODE_DECRYPT;
 				break;
-			case 'i': // initialization vector value
-				iv = optarg;
+			case 'i': // initialization vector HEX
+				_iv = 1;
+				gethex(iv, optarg, BLOCKSIZE, "IV");
 				break;
-			case 'k': // key value
-				key = optarg;
+			case 'k': // key HEX
+				_key = 1;
+				gethex(key, optarg, BLOCKSIZE, "Key");
 				break;
 		}
+	}
+
+	// Generate random values if not provided
+	if (_key == 0) {
+		genhex(key, BLOCKSIZE, "Key");
+	}
+	if (_iv == 0) {
+		genhex(iv, BLOCKSIZE, "IV");
 	}
 
 	getbits(key, keybits, KEYSIZE);
@@ -65,7 +81,7 @@ int main(int argc, char *argv[])
 
 	switch (mode) {
 		case MODE_ENCRYPT:
-			memset(reg, 0, BLOCKSIZE);									// initialization vector
+			memcpy(reg, iv, BLOCKSIZE);									// initialization vector
 			while ((n = read(0, buf, unit)) > 0) {
 				// TODO: Padding for UNITSIZE > 1
 				getbits(reg, blockbits, BLOCKSIZE);
@@ -78,7 +94,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case MODE_DECRYPT:
-			memset(reg, 0, BLOCKSIZE);									// initialization vector
+			memcpy(reg, iv, BLOCKSIZE);									// initialization vector
 			while ((n = read(0, buf, unit)) > 0) {
 				// TODO: Padding for UNITSIZE > 1
 				getbits(reg, blockbits, BLOCKSIZE);

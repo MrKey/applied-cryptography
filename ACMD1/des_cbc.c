@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "mode.h"
 #include "getbits.h"
+#include "util.h"
 
 #define KEYSIZE 8
 #define KEYBITS (KEYSIZE*8)
@@ -23,10 +24,11 @@ int main(int argc, char *argv[])
 	char plain[BLOCKSIZE], cipher[BLOCKSIZE], plain_prev[BLOCKSIZE], cipher_prev[BLOCKSIZE];
 	char keybits[KEYBITS];
 	char blockbits[BLOCKBITS];
-	char *key;
-	char iv[BLOCKSIZE];
+	char key[BLOCKSIZE], iv[BLOCKSIZE];
+	int _key = 0;
 	int mode = MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_XOR;
 
+	memset(key, 0, BLOCKSIZE);
 	memset(iv, 0, BLOCKSIZE);											// default initialization vector (no IV)
 
 	// Get options
@@ -39,16 +41,12 @@ int main(int argc, char *argv[])
 			case 'e': // encrypt
 				mode = mode & ~MODE_DECRYPT;
 				break;
-			case 'i': // initialization vector
-				if ((n = strlen(optarg)) < BLOCKSIZE) {
-					fprintf(stderr, "IV too short, padded using 0 to match %d bytes\n", BLOCKSIZE);
-				} else if (n > BLOCKSIZE) {
-					fprintf(stderr, "IV to long, truncated to %d bytes\n", BLOCKSIZE);
-				}
-				memcpy(iv, optarg, n > BLOCKSIZE ? BLOCKSIZE : n);
-			break;
-			case 'k': // key value
-				key = optarg;
+			case 'i': // initialization vector HEX
+				gethex(iv, optarg, BLOCKSIZE, "IV");
+				break;
+			case 'k': // key HEX
+				_key = 1;
+				gethex(key, optarg, BLOCKSIZE, "Key");
 				break;
 			case 'p': // pad
 				mode = mode & ~MODE_NOPAD | MODE_PAD;
@@ -57,6 +55,11 @@ int main(int argc, char *argv[])
 				mode = mode & ~MODE_PAD | MODE_NOPAD_STEAL;
 				break;
 		}
+	}
+
+	// Generate random values if not provided
+	if (_key == 0) {
+		genhex(key, BLOCKSIZE, "Key");
 	}
 
 	getbits(key, keybits, KEYSIZE);
