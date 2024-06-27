@@ -1,13 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>
 #include <openssl/pem.h>
 
+void readcnf(const char *filename, char **C, char **O, char **OU, char **CN);
+
 int main(int argc, char *argv[])
 {
+	// Read configuration from file mkcert.cnf
+	char *x509_field_C = NULL, *x509_field_O = NULL, *x509_field_OU = NULL, *x509_field_CN = NULL;
+	readcnf("mkcert.cnf", &x509_field_C, &x509_field_O, &x509_field_OU, &x509_field_CN);
+
+	// This is deprecated use. Use single EVP_RSA_gen() instead!
 	/*
 	EVP_PKEY *pkey;
 	pkey = EVP_PKEY_new();
@@ -43,10 +51,14 @@ int main(int argc, char *argv[])
 	X509_NAME *name;
 	name = X509_get_subject_name(x509);
 
-	X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)"LV", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "0", MBSTRING_ASC, (unsigned char *)"Martins Ketners", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "0U", MBSTRING_ASC, (unsigned char *)"Root CA", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)"ACMD2", -1, -1, 0);
+	if (x509_field_C != NULL)
+		X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)x509_field_C, -1, -1, 0);
+	if (x509_field_O != NULL)
+		X509_NAME_add_entry_by_txt(name, "0", MBSTRING_ASC, (unsigned char *)x509_field_O, -1, -1, 0);
+	if (x509_field_OU != NULL)
+		X509_NAME_add_entry_by_txt(name, "0U", MBSTRING_ASC, (unsigned char *)x509_field_OU, -1, -1, 0);
+	if (x509_field_CN != NULL)
+		X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)x509_field_CN, -1, -1, 0);
 
 	X509_set_issuer_name(x509, name);
 	X509_set_subject_name(x509, name); // Root certificate's issuer and subject fields are the same, and its signature can be validated with its own public key.
@@ -54,9 +66,8 @@ int main(int argc, char *argv[])
 	X509_sign(x509, pkey, EVP_sha3_256());
 
 	// Write out to files
-	FILE *f;
-	f = fopen("key.pem", "wb");
-	PEM_write_PrivateKey(f, pkey, EVP_aes_128_cbc(), NULL, 9, NULL, "");
+	FILE *f = fopen("key.pem", "wb");
+	PEM_write_PrivateKey(f, pkey, EVP_aes_128_cbc(), NULL, 0, NULL, "");
 	fclose(f);
 	f = fopen("cert.pem", "wb");
 	PEM_write_X509(f, x509);
@@ -66,4 +77,42 @@ int main(int argc, char *argv[])
 	EVP_PKEY_free(pkey);
 
 	exit(0);
+}
+
+void readcnf(const char *filename, char **C, char **O, char **OU, char **CN)
+{
+	size_t l;
+	FILE *f = fopen(filename, "r");
+	char buf[256], *s;
+	while (fgets(buf, 256, f)) {
+		if (strncmp(buf, "C:", 2) == 0) {
+			s = malloc(l = strlen((buf+2)));
+			strcpy(s, buf+2);
+			if (s[l-1] == 0x0a) s[l-1] = 0; // Trim retained newline
+			*C = s;
+			// puts(s);
+		}
+		if (strncmp(buf, "O:", 2) == 0) {
+			s = malloc(l = strlen(buf+2));
+			strcpy(s, buf+2);
+			if (s[l-1] == 0x0a) s[l-1] = 0; // Trim retained newline
+			*O = s;
+			// puts(s);
+		}
+		if (strncmp(buf, "OU:", 3) == 0) {
+			s = malloc(l = strlen(buf+3));
+			strcpy(s, buf+3);
+			if (s[l-1] == 0x0a) s[l-1] = 0; // Trim retained newline
+			*OU = s;
+			// puts(s);
+		}
+		if (strncmp(buf, "CN:", 3) == 0) {
+			s = malloc(l = strlen(buf+3));
+			strcpy(s, buf+3);
+			if (s[l-1] == 0x0a) s[l-1] = 0; // Trim retained newline
+			*CN = s;
+			// puts(s);
+		}
+	}
+	fclose(f);
 }
