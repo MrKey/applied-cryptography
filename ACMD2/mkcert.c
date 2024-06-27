@@ -9,7 +9,7 @@
 
 void readcnf(const char *filename, char **C, char **O, char **OU, char **CN);
 
-int main(int argc, char *argv[])
+int main()
 {
 	// Read configuration from file mkcert.cnf
 	char *x509_field_C = NULL, *x509_field_O = NULL, *x509_field_OU = NULL, *x509_field_CN = NULL;
