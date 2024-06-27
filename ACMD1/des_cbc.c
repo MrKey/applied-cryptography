@@ -15,6 +15,8 @@
 
 void chain(char buf[], const char cph[], int n);
 
+void usage(char *cmd);
+
 int main(int argc, char *argv[])
 {
 	int i, n, flag;
@@ -52,6 +54,9 @@ int main(int argc, char *argv[])
 			case 's': // nopad with stealing
 				mode = mode & ~MODE_PAD | MODE_NOPAD_STEAL;
 				break;
+			default:
+				usage(argv[0]);
+				return 1;
 		}
 	}
 
@@ -193,3 +198,18 @@ void chain(char buf[], const char cph[], int n)
 		buf[i] ^= cph[i];
 }
 
+void usage(char *cmd)
+{
+	printf("Encrypts/decrypts content in DES-CBC mode.\n");
+	printf("usage: %s [-edps] [-i HEX] [-k HEX] [< FILE] [> FILE]\n", cmd);
+	printf("\nOptions:\n"
+		   "  -d      Decrypt.\n"
+		   "  -e      Encrypt (default).\n"
+		   "  -k HEX  Secret key in hexadecimal notation. If not provided, generates a random key and outputs to stderr prefixed with 'Key: '.\n"
+		   "  -i HEX  Secret initialization vector in hexadecimal notation. If not provided, no IV is used (IV is 0).\n"
+		   "  -p      Use block padding. Default is no padding with XOR approach for the last incomplete block.\n"
+		   "  -s      No padding with Steal approach for the last incomplete block. NOT IMPLEMENTED!\n"
+		   "\nInput/output:\n"
+		   "  < FILE  Retrieve file content to encrypt via STDIN.\n"
+		   "  > FILE  Store encrypted content into a file via STDOUT.\n");
+}

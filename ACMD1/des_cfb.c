@@ -18,6 +18,8 @@ void chain(char enc[], const char buf[], int n);
 void shiftreg(char reg[], int n);
 void move(char reg[], const char buf[], int n);
 
+void usage(char *cmd);
+
 int main(int argc, char *argv[])
 {
 	int i, n;
@@ -65,6 +67,9 @@ int main(int argc, char *argv[])
 				_key = 1;
 				gethex(key, optarg, BLOCKSIZE, "Key");
 				break;
+			default:
+				usage(argv[0]);
+				return 1;
 		}
 	}
 
@@ -127,3 +132,17 @@ void move(char reg[], const char buf[], int n)
 		reg[BLOCKSIZE - n + i] = buf[i];
 }
 
+void usage(char *cmd)
+{
+	printf("Encrypts/decrypts content in DES-CFB mode.\n");
+	printf("usage: %s [-ed] [-i HEX] [-k HEX] [-u N] [< infile] [> outfile]\n", cmd);
+	printf("\nOptions:\n"
+		   "  -d      Decrypt.\n"
+		   "  -e      Encrypt (default).\n"
+		   "  -k HEX  Secret key in hexadecimal notation. If not provided, generates a random key and outputs to stderr prefixed with 'Key: '.\n"
+		   "  -i HEX  Secret initialization vector in hexadecimal notation. If not provided, generates a random value and outputs to stderr prefixed with 'IV: '.\n"
+		   "  -u N    CFB shift unit size (in bytes), similar to des-cfb1, des-cfb8. Possible values: 1, 2, 4, 8. Default is 8 to match des-cfb.\n"
+		   "\nInput/output:\n"
+		   "  < FILE  Retrieve file content to encrypt via STDIN.\n"
+		   "  > FILE  Store encrypted content into a file via STDOUT.\n");
+}
