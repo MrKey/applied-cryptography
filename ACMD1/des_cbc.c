@@ -8,9 +8,9 @@
 #include "getbits.h"
 
 #define KEYSIZE 8
-#define KEYBITS KEYSIZE*8
+#define KEYBITS (KEYSIZE*8)
 #define BLOCKSIZE 8
-#define BLOCKBITS BLOCKSIZE*8
+#define BLOCKBITS (BLOCKSIZE*8)
 #define EDFLAG_ENCRYPT 0
 #define EDFLAG_DECRYPT 1
 
