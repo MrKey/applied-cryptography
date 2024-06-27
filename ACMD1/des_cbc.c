@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 #include "mode.h"
 #include "getbits.h"
@@ -181,8 +179,10 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case MODE_ENCRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
+			// TODO
 			break;
 		case MODE_DECRYPT + MODE_NOPAD + MODE_NOPAD_STEAL:
+			// TODO
 			break;
 	}
 }

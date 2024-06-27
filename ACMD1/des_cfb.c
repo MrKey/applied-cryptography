@@ -20,9 +20,9 @@ void move(char reg[], const char buf[], int n);
 
 int main(int argc, char *argv[])
 {
-	int i, n, flag;
+	int i, n;
 
-	char buf[UNITSIZE], output[UNITSIZE], reg[BLOCKSIZE], enc[BLOCKSIZE];
+	char buf[UNITSIZE], reg[BLOCKSIZE], enc[BLOCKSIZE];
 	char blockbits[BLOCKBITS], keybits[KEYBITS];
 	char key[BLOCKSIZE], iv[BLOCKSIZE];
 	int _key = 0, _iv = 0;
