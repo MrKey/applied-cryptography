@@ -1,1 +1,4 @@
+root = true
+
+[*.c, *.h]
 tab_width = 4
